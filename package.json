@@ -1,0 +1,41 @@
+{
+  "name": "svelte-look",
+  "version": "0.0.1",
+  "type": "module",
+  "bin": {
+    "svelte-look": "./dist/cli/index.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepare": "tsc",
+    "watch": "tsc --watch",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "chrome-launcher": "^1.1.2",
+    "puppeteer-core": "^24.9.0"
+  },
+  "peerDependencies": {
+    "svelte": "^5.0.0",
+    "vite": "^6.0.0 || ^7.0.0",
+    "@sveltejs/vite-plugin-svelte": "^5.0.0 || ^6.0.0 || ^7.0.0"
+  },
+  "peerDependenciesMeta": {
+    "svelte": { "optional": false },
+    "vite": { "optional": false },
+    "@sveltejs/vite-plugin-svelte": { "optional": false }
+  },
+  "devDependencies": {
+    "svelte": "^5.32.2",
+    "@types/node": "^25.0.0",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.0",
+    "@sveltejs/vite-plugin-svelte": "^5.0.3"
+  }
+}
