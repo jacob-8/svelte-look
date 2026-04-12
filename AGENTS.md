@@ -22,29 +22,28 @@ Uses Vite internally as a programmatic module compiler (not HTTP server) for SSR
 ## Project Structure
 
 ```
-package/                  # The svelte-look npm package
-├── src/
-│   ├── cli/
-│   │   ├── index.ts          # CLI entry point (bin: svelte-look)
-│   │   └── list.ts           # List all .svelte files in src/
-│   ├── render/
-│   │   ├── vite-loader.ts    # Vite server creation + HTTP mount server for CSR
-│   │   ├── ssr.ts            # SSR render via svelte/server render()
-│   │   ├── csr.ts            # CSR render via Puppeteer navigating to Vite-served mount page
-│   │   └── css.ts            # CSS augmentation: universal CSS, UnoCSS generation, styled HTML assembly
-│   ├── stories/
-│   │   ├── load.ts           # Load .stories.ts and mocks files via vite.ssrLoadModule
-│   │   └── resolve.ts        # Merge mocks + shared_meta + story → ResolvedStory
-│   ├── screenshot/
-│   │   └── puppeteer.ts      # Puppeteer browser management + HTML-to-PNG
-│   ├── config.ts             # Load svelte-look.config.ts via vite.ssrLoadModule
-│   ├── types.ts              # All type definitions
-│   └── index.ts              # Public exports (types + define_config)
-├── dist/                     # tsc output
-├── package.json
-└── tsconfig.json
+src/                          # Package source
+├── cli/
+│   ├── index.ts              # CLI entry point (bin: svelte-look)
+│   └── list.ts               # List all .svelte files in src/
+├── render/
+│   ├── vite-loader.ts        # Vite server creation + HTTP mount server for CSR
+│   ├── ssr.ts                # SSR render via svelte/server render()
+│   ├── csr.ts                # CSR render via Puppeteer navigating to Vite-served mount page
+│   └── css.ts                # CSS augmentation: universal CSS, UnoCSS generation, styled HTML assembly
+├── stories/
+│   ├── load.ts               # Load .stories.ts and mocks files via vite.ssrLoadModule
+│   └── resolve.ts            # Merge mocks + shared_meta + story → ResolvedStory
+├── screenshot/
+│   └── puppeteer.ts          # Puppeteer browser management + HTML-to-PNG
+├── config.ts                 # Load svelte-look.config.ts via vite.ssrLoadModule
+├── types.ts                  # All type definitions
+└── index.ts                  # Public exports (types + define_config)
+dist/                         # tsc output
+package.json
+tsconfig.json
 
-example/                  # Test SvelteKit + UnoCSS app for development
+example/                      # Test SvelteKit + UnoCSS app for development
 ├── src/
 ├── svelte-look.config.ts
 └── package.json
@@ -54,8 +53,8 @@ example/                  # Test SvelteKit + UnoCSS app for development
 
 | Command | Description |
 |---------|-------------|
-| `cd package && pnpm build` | Build with tsc |
-| `cd package && pnpm dev` | Build in watch mode |
+| `pnpm build` | Build with tsc |
+| `pnpm dev` | Build in watch mode |
 | `cd example && npx svelte-look list` | Test list command |
 | `cd example && npx svelte-look /lib/components/Button --output /tmp/test.png` | Test screenshot |
 
