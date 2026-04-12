@@ -8,6 +8,10 @@ export interface StoryMeta {
   csr?: boolean
   /** Puppeteer Page interactions to run before screenshot (requires csr: true). Receives a Puppeteer Page object. */
   interactions?: (page: any) => Promise<void>
+  /** Set to false to opt out of flavor variants for this story */
+  flavors?: false
+  /** Set to false to opt out of dark mode variant for this story */
+  dark?: false
 }
 
 export interface Story<TComponent extends Component<any>> extends StoryMeta {
@@ -33,9 +37,14 @@ export interface StoriesModule {
   [story_name: string]: Story<any> | PageStory<any> | StoryMeta | undefined
 }
 
+export interface Flavor {
+  page_data: Record<string, any>
+}
+
 export interface MocksModule {
   default_page_data?: Record<string, any>
   default_contexts?: MockedContext[]
+  flavors?: Record<string, Flavor>
 }
 
 export interface ResolvedStory {
@@ -52,4 +61,5 @@ export interface SvelteLookConfig {
   css_files?: string[]
   uno_config?: string
   page_viewports?: Viewport[]
+  dark_mode?: boolean
 }

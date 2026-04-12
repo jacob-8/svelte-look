@@ -1,7 +1,6 @@
 ---
 title: CSR rendering via Puppeteer + Vite dev server
 type: feature
-priority: 1
 ---
 
 ## Goal

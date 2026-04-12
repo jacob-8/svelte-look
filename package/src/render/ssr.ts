@@ -19,9 +19,25 @@ export async function ssr_render_component({ vite, component_path, resolved_stor
     ? { data: { ...resolved_story.page_data, ...resolved_story.props } }
     : resolved_story.props
 
+  const page_data = { ...resolved_story.page_data, ...resolved_story.props }
+
   const context = new Map(
     resolved_story.contexts.map(({ key, value }) => [key, value]),
   )
+
+  // Populate SvelteKit's __request__ context so $app/state works during SSR
+  context.set('__request__', {
+    page: {
+      data: page_data,
+      error: null,
+      form: null,
+      params: {},
+      route: { id: component_path },
+      state: {},
+      status: 200,
+      url: new URL(`http://localhost${component_path}`),
+    },
+  })
 
   const rendered = render(component, { props, context })
 

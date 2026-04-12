@@ -22,36 +22,42 @@ Uses Vite internally as a programmatic module compiler (not HTTP server) for SSR
 ## Project Structure
 
 ```
-src/
-├── cli/
-│   ├── index.ts          # CLI entry point (bin: svelte-look)
-│   ├── list.ts           # List all .svelte files in src/
-│   └── render.ts         # Convert __snapshots__/*.html to PNGs
-├── render/
-│   ├── vite-loader.ts    # Vite server creation + HTTP mount server for CSR
-│   ├── ssr.ts            # SSR render via svelte/server render()
-│   ├── csr.ts            # CSR render via Puppeteer navigating to Vite-served mount page
-│   └── css.ts            # CSS augmentation: universal CSS, UnoCSS generation, styled HTML assembly
-├── stories/
-│   ├── load.ts           # Load .stories.ts and mocks files via vite.ssrLoadModule
-│   └── resolve.ts        # Merge mocks + shared_meta + story → ResolvedStory
-├── screenshot/
-│   └── puppeteer.ts      # Puppeteer browser management + HTML-to-PNG
-├── config.ts             # Load svelte-look.config.ts via vite.ssrLoadModule
-├── types.ts              # All type definitions
-└── index.ts              # Public exports (types + define_config)
+package/                  # The svelte-look npm package
+├── src/
+│   ├── cli/
+│   │   ├── index.ts          # CLI entry point (bin: svelte-look)
+│   │   └── list.ts           # List all .svelte files in src/
+│   ├── render/
+│   │   ├── vite-loader.ts    # Vite server creation + HTTP mount server for CSR
+│   │   ├── ssr.ts            # SSR render via svelte/server render()
+│   │   ├── csr.ts            # CSR render via Puppeteer navigating to Vite-served mount page
+│   │   └── css.ts            # CSS augmentation: universal CSS, UnoCSS generation, styled HTML assembly
+│   ├── stories/
+│   │   ├── load.ts           # Load .stories.ts and mocks files via vite.ssrLoadModule
+│   │   └── resolve.ts        # Merge mocks + shared_meta + story → ResolvedStory
+│   ├── screenshot/
+│   │   └── puppeteer.ts      # Puppeteer browser management + HTML-to-PNG
+│   ├── config.ts             # Load svelte-look.config.ts via vite.ssrLoadModule
+│   ├── types.ts              # All type definitions
+│   └── index.ts              # Public exports (types + define_config)
+├── dist/                     # tsc output
+├── package.json
+└── tsconfig.json
 
-sample/                   # Test SvelteKit + UnoCSS app for development
+example/                  # Test SvelteKit + UnoCSS app for development
+├── src/
+├── svelte-look.config.ts
+└── package.json
 ```
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `pnpm build` | Build with tsc |
-| `pnpm dev` | Build in watch mode |
-| `cd sample && node ../dist/cli/index.js list` | Test list command |
-| `cd sample && node ../dist/cli/index.js /lib/components/Button --output /tmp/test.png` | Test screenshot |
+| `cd package && pnpm build` | Build with tsc |
+| `cd package && pnpm dev` | Build in watch mode |
+| `cd example && npx svelte-look list` | Test list command |
+| `cd example && npx svelte-look /lib/components/Button --output /tmp/test.png` | Test screenshot |
 
 ## Two Rendering Paths
 
@@ -81,10 +87,14 @@ story → start HTTP server with Vite middleware → serve mount page HTML
 - `vite.ssrLoadModule()` loads .svelte, .stories.ts, config files, and even `unocss` from the consuming project
 - For CSR, a Node HTTP server wraps `vite.middlewares` to serve the mount page
 
+### SvelteKit `$app/state` support
+SSR populates the `__request__` Svelte context key with the story's page data, so `page.data.*` works during server rendering without needing `csr: true`. This mimics what SvelteKit does internally during its request pipeline.
+
 ### Story resolution order (later overrides earlier)
 1. `default_page_data` / `default_contexts` from mocks file
-2. `shared_meta` from stories file
-3. Individual story
+2. Flavor `page_data` (if flavors exist in mocks)
+3. `shared_meta` from stories file
+4. Individual story
 
 ### Viewport resolution
 - **Page/layout** (`+page.svelte`, `+layout.svelte`): story → shared_meta → config `page_viewports`
@@ -101,6 +111,28 @@ SSR output contains comment markers (`<!--[-->`, `<!--]-->`, `<!---->`, etc.) th
 
 ### SvelteKit route file naming
 `+page.svelte` → `_page.stories.ts`, `+layout.svelte` → `_layout.stories.ts` (the `+` prefix has special meaning in SvelteKit routing)
+
+### Flavors
+Named sets of `page_data` overrides defined in the mocks file:
+```ts
+export const flavors: Record<string, Flavor> = {
+  world: { page_data: { region: 'world', mother: 'en' } },
+  china: { page_data: { region: 'china', mother: 'zh' } },
+}
+```
+- Auto-inferred from mocks `flavors` export — no config needed
+- First flavor used by default, `--flavor <name>` for specific, `--all-flavors` for all
+- Stories opt out with `flavors: false` on shared_meta or individual story
+- Merge order: `default_page_data → flavor.page_data → shared_meta.page_data → story.page_data`
+
+### Dark mode
+- Enabled via `dark_mode: true` in `svelte-look.config.ts`
+- Renders both light and dark variants as separate images
+- SSR: adds `class="dark"` to `<html>` + `prefers-color-scheme: dark` media emulation
+- CSR: same plus `document.documentElement.classList.add('dark')` after navigation
+- Stories opt out with `dark: false` on shared_meta or individual story
+- Output filenames get `_dark` suffix; base64 stdout outputs as separate newline-delimited chunks
+- Body defaults: `background: var(--background, #ffffff); color: var(--color, #000000)` — consuming projects override via CSS custom properties
 
 ## Important Gotchas
 

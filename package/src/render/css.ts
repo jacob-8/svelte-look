@@ -50,22 +50,25 @@ export async function generate_uno_css({ html, cwd, vite, config }: {
   }
 }
 
-export function build_styled_html({ body, component_css, universal_css, uno_css }: {
+export function build_styled_html({ body, component_css, universal_css, uno_css, dark }: {
   body: string
   component_css: string
   universal_css: string
   uno_css: string
+  dark?: boolean
 }): string {
   const styles = [universal_css, uno_css, component_css]
     .filter(Boolean)
     .join('\n')
 
+  const html_attrs = dark ? ' class="dark"' : ''
+
   return `<!DOCTYPE html>
-<html>
+<html${html_attrs}>
 <head>
 <meta charset="utf-8">
 <style>${styles}
-body { font-family: sans-serif; }</style>
+body { font-family: sans-serif; background: var(--background, #ffffff); color: var(--color, #000000); }</style>
 </head>
 <body>${body}</body>
 </html>`

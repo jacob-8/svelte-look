@@ -19,12 +19,17 @@ export async function get_browser(): Promise<Browser> {
   return cached_browser
 }
 
-export async function html_to_png({ html, viewport }: {
+export async function html_to_png({ html, viewport, dark }: {
   html: string
   viewport: Viewport
+  dark?: boolean
 }): Promise<Buffer> {
   const browser = await get_browser()
   const page = await browser.newPage()
+
+  await page.emulateMediaFeatures([
+    { name: 'prefers-color-scheme', value: dark ? 'dark' : 'light' },
+  ])
 
   await page.setViewport({ width: viewport.width, height: viewport.height })
   await page.setContent(html, { waitUntil: 'load' })

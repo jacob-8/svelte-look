@@ -3,7 +3,7 @@ import type { ViteDevServer } from 'vite'
 import { get_browser } from '../screenshot/puppeteer.js'
 import { start_mount_server } from './vite-loader.js'
 
-export async function csr_render_component({ vite, component_path, resolved_story, story_name, cwd, config, is_page, viewport }: {
+export async function csr_render_component({ vite, component_path, resolved_story, story_name, cwd, config, is_page, viewport, dark }: {
   vite: ViteDevServer
   component_path: string
   resolved_story: ResolvedStory
@@ -12,6 +12,7 @@ export async function csr_render_component({ vite, component_path, resolved_stor
   config: SvelteLookConfig
   is_page: boolean
   viewport: Viewport
+  dark?: boolean
 }): Promise<Buffer> {
   const base_url = await start_mount_server({ vite, cwd, config })
 
@@ -30,8 +31,15 @@ export async function csr_render_component({ vite, component_path, resolved_stor
 
   page.on('pageerror', err => console.error(`[browser error] ${err}`))
 
+  await page.emulateMediaFeatures([
+    { name: 'prefers-color-scheme', value: dark ? 'dark' : 'light' },
+  ])
+
   await page.setViewport({ width: viewport.width, height: viewport.height })
   await page.goto(url, { waitUntil: 'networkidle0' })
+
+  if (dark)
+    await page.evaluate(() => document.documentElement.classList.add('dark'))
   await page.waitForFunction('window.__svelte_look_mounted__', { timeout: 10000 })
 
   if (resolved_story.interactions)

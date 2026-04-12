@@ -1,14 +1,16 @@
 # svelte-look
 
-Screenshot Svelte components from the command line. No dev server needed.
+Screenshot Svelte components from the command line. Allows your agent to easily get visual feedback when working on Svelte components. Runs Vite on its so requires no manual dev server management.
+
+Example cli command:
 
 ```bash
 npx svelte-look /lib/components/Button --story Primary
 ```
 
-Write a `.stories.ts` file next to your component, run the CLI, get a PNG (base64 to stdout or saved to a file).
+In short, your agent writes a `.stories.ts` file next to your component, runs the CLI, and gets a PNG returned (base64 to stdout or saved to a file).
 
-## Agent prompt
+## Agent prompt to install and setup
 
 Add this to your agent's system prompt or project instructions:
 

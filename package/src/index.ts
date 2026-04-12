@@ -4,6 +4,7 @@ export type {
   StoryMeta,
   StoriesModule,
   MocksModule,
+  Flavor,
   Viewport,
   MockedContext,
   ResolvedStory,

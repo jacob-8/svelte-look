@@ -1,16 +1,18 @@
-import type { MockedContext, MocksModule, ResolvedStory, Story, StoryMeta, Viewport } from '../types.js'
+import type { Flavor, MockedContext, MocksModule, ResolvedStory, Story, StoryMeta, Viewport } from '../types.js'
 
-export function resolve_story({ story, shared_meta, mocks, is_page, default_page_viewports }: {
+export function resolve_story({ story, shared_meta, mocks, is_page, default_page_viewports, flavor }: {
   story: Story<any>
   shared_meta?: StoryMeta
   mocks: MocksModule
   is_page: boolean
   default_page_viewports: Viewport[]
+  flavor?: Flavor
 }): ResolvedStory {
   const props = story.props ?? {}
 
   const page_data = {
     ...(mocks.default_page_data ?? {}),
+    ...(flavor?.page_data ?? {}),
     ...(shared_meta?.page_data ?? {}),
     ...(story.page_data ?? {}),
   }
