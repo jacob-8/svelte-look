@@ -63,7 +63,7 @@ export function build_styled_html({ body, component_css, universal_css, uno_css,
 
   const html_attrs = dark ? ' class="dark"' : ''
 
-  return `<!DOCTYPE html>
+  const result = `<!DOCTYPE html>
 <html${html_attrs}>
 <head>
 <meta charset="utf-8">
@@ -72,4 +72,5 @@ body { font-family: sans-serif; background: var(--background, #ffffff); color: v
 </head>
 <body>${body}</body>
 </html>`
+  return result
 }

@@ -19,10 +19,11 @@ export async function get_browser(): Promise<Browser> {
   return cached_browser
 }
 
-export async function html_to_png({ html, viewport, dark }: {
+export async function html_to_png({ html, viewport, dark, full_page }: {
   html: string
   viewport: Viewport
   dark?: boolean
+  full_page?: boolean
 }): Promise<Buffer> {
   const browser = await get_browser()
   const page = await browser.newPage()
@@ -34,7 +35,7 @@ export async function html_to_png({ html, viewport, dark }: {
   await page.setViewport({ width: viewport.width, height: viewport.height })
   await page.setContent(html, { waitUntil: 'load' })
 
-  const buffer = Buffer.from(await page.screenshot({ type: 'png', fullPage: true }))
+  const buffer = Buffer.from(await page.screenshot({ type: 'png', fullPage: full_page ?? false }))
   await page.close()
   return buffer
 }

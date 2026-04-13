@@ -18,7 +18,7 @@ function parse_flag(flag: string): string | undefined {
     return args[index + 1]
 }
 
-const BOOLEAN_FLAGS = ['--all-flavors', '--help']
+const BOOLEAN_FLAGS = ['--all-flavors', '--full-page', '--help']
 
 function get_positional_args(): string[] {
   const positional: string[] = []
@@ -50,6 +50,7 @@ Options:
   --output <path>        Save PNG to file instead of base64 stdout
   --flavor <name>        Use a specific flavor from the mocks file
   --all-flavors          Screenshot all flavors (default: first flavor only)
+  --full-page            Capture the full scrollable page (default: viewport only)
 
 Examples:
   npx svelte-look /lib/components/Button --story Default
@@ -86,6 +87,7 @@ async function main() {
   const output_path = parse_flag('--output')
   const flavor_flag = parse_flag('--flavor')
   const all_flavors = has_flag('--all-flavors')
+  const full_page = has_flag('--full-page')
 
   try {
     const vite = await create_vite_loader({ cwd })
@@ -121,6 +123,7 @@ async function main() {
           is_page,
           default_page_viewports,
           flavor,
+          flavor_name,
         })
 
         for (const viewport of resolved.viewports) {
@@ -142,6 +145,7 @@ async function main() {
                 is_page,
                 viewport,
                 dark: variant.dark,
+                full_page,
               })
             } else {
               const { body, head } = await ssr_render_component({
@@ -161,7 +165,7 @@ async function main() {
                 dark: variant.dark,
               })
 
-              png_buffer = await html_to_png({ html: styled_html, viewport, dark: variant.dark })
+              png_buffer = await html_to_png({ html: styled_html, viewport, dark: variant.dark, full_page })
             }
 
             const suffix = [name, flavor_name, variant.label].filter(Boolean).join('_')

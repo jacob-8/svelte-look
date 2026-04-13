@@ -1,6 +1,4 @@
----
-title: Add flavors support for named page_data presets
----
+# Add flavors support for named page_data presets
 
 ## ✅ COMPLETE
 

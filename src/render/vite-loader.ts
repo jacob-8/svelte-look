@@ -20,44 +20,51 @@ export async function create_vite_loader({ cwd }: { cwd: string }): Promise<Vite
     server: { middlewareMode: true },
     appType: 'custom',
     logLevel: 'silent',
+    plugins: [app_state_shim_plugin()],
   })
 
   return cached_server
 }
 
-export async function start_mount_server({ vite, cwd, config }: {
-  vite: ViteDevServer
-  cwd: string
-  config: SvelteLookConfig
-}): Promise<string> {
-  if (mount_server_url)
-    return mount_server_url
+export function app_state_shim_plugin() {
+  return {
+    name: 'svelte-look-app-state-shim',
+    enforce: 'pre' as const,
 
-  const css_imports = (config.css_files ?? [])
-    .map(file => `import '/${file}'`)
-    .join('\n    ')
+    load(id: string) {
+      // Intercept the browser-side $app/state client module so CSR components read from our page data
+      // Only intercept client.js (not index.js) to preserve SSR's getContext('__request__') path
+      if (id.includes('/runtime/app/state/client.js')) {
+        return `
+export const page = new Proxy({}, {
+  get(_, prop) {
+    const data = window.__svelte_look_page__ || {}
+    return data[prop]
+  }
+})
+export const navigating = { current: null }
+export const updated = { current: false, check: async () => false }
+`
+      }
+    },
+  }
+}
 
-  const uno_config_path = config.uno_config ?? 'uno.config.ts'
-  const has_uno = existsSync(join(cwd, uno_config_path))
-  const uno_import = has_uno ? `import 'virtual:uno.css'` : ''
+export function generate_mount_html({ component_path, story_name, is_page, mocks_path, flavor_name, css_imports_str, uno_import }: {
+  component_path: string
+  story_name: string
+  is_page: boolean
+  mocks_path: string
+  flavor_name: string
+  css_imports_str: string
+  uno_import: string
+}): string {
+  const component_src = `/src${component_path}.svelte`
+  const stories_src = find_stories_src_path({ component_path })
+  const mocks_import = mocks_path ? `import * as mocks from '/${mocks_path}'` : ''
+  const mocks_ref = mocks_path ? 'mocks' : '{}'
 
-  function mount_handler(req: IncomingMessage, res: ServerResponse, next: () => void) {
-    const req_url = req.url ?? ''
-    if (!req_url.startsWith('/__svelte-look__/mount'))
-      return next()
-
-    const url = new URL(req_url, 'http://localhost')
-    const component_path = url.searchParams.get('component') ?? ''
-    const story_name = url.searchParams.get('story') ?? 'Default'
-    const is_page = url.searchParams.get('is_page') === 'true'
-    const mocks_path = url.searchParams.get('mocks') ?? ''
-
-    const component_src = `/src${component_path}.svelte`
-    const stories_src = find_stories_src_path({ component_path })
-    const mocks_import = mocks_path ? `import * as mocks from '/${mocks_path}'` : ''
-    const mocks_ref = mocks_path ? 'mocks' : '{}'
-
-    const html = `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
@@ -65,7 +72,7 @@ export async function start_mount_server({ vite, cwd, config }: {
 </head>
 <body>
 <script type="module">
-    ${css_imports}
+    ${css_imports_str}
     ${uno_import}
     import { mount } from 'svelte'
     import Component from '${component_src}'
@@ -77,14 +84,18 @@ export async function start_mount_server({ vite, cwd, config }: {
 
     const mock_data = ${mocks_ref}
     const is_page = ${is_page}
+    const flavor_name = '${flavor_name}'
+    const flavor = flavor_name && mock_data.flavors ? mock_data.flavors[flavor_name] : undefined
+
+    const page_data = {
+      ...(mock_data.default_page_data ?? {}),
+      ...(flavor?.page_data ?? {}),
+      ...(shared?.page_data ?? {}),
+      ...(story.page_data ?? {}),
+    }
 
     let props = story.props ?? {}
     if (is_page) {
-      const page_data = {
-        ...(mock_data.default_page_data ?? {}),
-        ...(shared?.page_data ?? {}),
-        ...(story.page_data ?? {}),
-      }
       props = { data: { ...page_data, ...props } }
     }
 
@@ -98,11 +109,63 @@ export async function start_mount_server({ vite, cwd, config }: {
       seen_keys.set(key, value)
     const context = seen_keys
 
+    // Populate page state for $app/state shim (intercepted by svelte-look Vite plugin)
+    window.__svelte_look_page__ = {
+      data: page_data,
+      error: null,
+      form: null,
+      params: {},
+      route: { id: '${component_path}' },
+      state: {},
+      status: 200,
+      url: new URL(window.location.href),
+    }
+
     mount(Component, { target: document.body, props, context })
     window.__svelte_look_mounted__ = true
 </script>
 </body>
 </html>`
+}
+
+export function build_css_imports({ config, cwd }: { config: SvelteLookConfig, cwd: string }): { css_imports_str: string, uno_import: string } {
+  const local_css_imports = (config.css_files ?? [])
+    .map(file => `import '/${file}'`)
+  const module_css_imports = (config.css_imports ?? [])
+    .map(mod => `import '${mod}'`)
+  const css_imports_str = [...module_css_imports, ...local_css_imports]
+    .join('\n    ')
+
+  const uno_config_path = config.uno_config ?? 'uno.config.ts'
+  const has_uno = existsSync(join(cwd, uno_config_path))
+  const uno_import = has_uno ? `import 'virtual:uno.css'` : ''
+
+  return { css_imports_str, uno_import }
+}
+
+export async function start_mount_server({ vite, cwd, config }: {
+  vite: ViteDevServer
+  cwd: string
+  config: SvelteLookConfig
+}): Promise<string> {
+  if (mount_server_url)
+    return mount_server_url
+
+  const { css_imports_str, uno_import } = build_css_imports({ config, cwd })
+
+  function mount_handler(req: IncomingMessage, res: ServerResponse, next: () => void) {
+    const req_url = req.url ?? ''
+    if (!req_url.startsWith('/__svelte-look__/mount'))
+      return next()
+
+    const url = new URL(req_url, 'http://localhost')
+    const component_path = url.searchParams.get('component') ?? ''
+    const story_name = url.searchParams.get('story') ?? 'Default'
+    const is_page = url.searchParams.get('is_page') === 'true'
+    const mocks_path = url.searchParams.get('mocks') ?? ''
+    const flavor_name = url.searchParams.get('flavor') ?? ''
+
+    const html = generate_mount_html({ component_path, story_name, is_page, mocks_path, flavor_name, css_imports_str, uno_import })
 
     vite.transformIndexHtml(req_url, html).then(transformed => {
       res.setHeader('Content-Type', 'text/html')
@@ -128,7 +191,7 @@ export async function start_mount_server({ vite, cwd, config }: {
   return mount_server_url
 }
 
-function find_stories_src_path({ component_path }: { component_path: string }): string {
+export function find_stories_src_path({ component_path }: { component_path: string }): string {
   const base = component_path.slice(1) // remove leading /
   const standard = `/src/${base}.stories.ts`
   const alt = `/src/${base.replace(/\+page$/, '_page').replace(/\+layout$/, '_layout')}.stories.ts`

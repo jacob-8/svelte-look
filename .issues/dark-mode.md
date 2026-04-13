@@ -1,6 +1,4 @@
----
-title: Dark mode support
----
+# Dark mode support
 
 ## ✅ COMPLETE
 

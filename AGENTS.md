@@ -56,7 +56,8 @@ example/                      # Test SvelteKit + UnoCSS app for development
 | `pnpm build` | Build with tsc |
 | `pnpm dev` | Build in watch mode |
 | `cd example && npx svelte-look list` | Test list command |
-| `cd example && npx svelte-look /lib/components/Button --output /tmp/test.png` | Test screenshot |
+| `cd example && npx svelte-look /lib/components/Button --output /tmp/test.png` | Test screenshot (viewport only) |
+| `cd example && npx svelte-look /lib/components/Button --full-page --output /tmp/test.png` | Test screenshot (full scrollable page) |
 
 ## Two Rendering Paths
 
@@ -87,7 +88,8 @@ story → start HTTP server with Vite middleware → serve mount page HTML
 - For CSR, a Node HTTP server wraps `vite.middlewares` to serve the mount page
 
 ### SvelteKit `$app/state` support
-SSR populates the `__request__` Svelte context key with the story's page data, so `page.data.*` works during server rendering without needing `csr: true`. This mimics what SvelteKit does internally during its request pipeline.
+- **SSR**: Populates the `__request__` Svelte context key with the story's page data, so `page.data.*` works during server rendering. This mimics what SvelteKit does internally during its request pipeline.
+- **CSR**: A Vite plugin (`app_state_shim_plugin` in `vite-loader.ts`) intercepts `$app/state`'s `client.js` module and replaces it with a proxy that reads from `window.__svelte_look_page__`. The mount handler sets this global before calling `mount()`. Only `client.js` is intercepted (not `index.js`) to preserve SSR's `getContext('__request__')` path. This avoids importing SvelteKit's full client runtime which hangs due to deep dependency chains (`state.svelte.js` → `utils.js` → `$app/paths` → full SvelteKit client`).
 
 ### Story resolution order (later overrides earlier)
 1. `default_page_data` / `default_contexts` from mocks file
@@ -103,13 +105,20 @@ SSR populates the `__request__` Svelte context key with the story's page data, s
 - Uses `vite.ssrLoadModule('unocss')` to load UnoCSS from the consuming project (not a direct dependency)
 - Loads project's `uno.config.ts` via vite for the generator config
 - For SSR: scans cleaned HTML (Svelte comment markers stripped) to generate utility CSS
-- For CSR: UnoCSS Vite plugin handles everything automatically
+- For CSR: UnoCSS Vite plugin handles everything automatically, but HMR updates arrive after mount. The CSR renderer waits for a UnoCSS `<style>` tag with substantial content before taking the screenshot (`waitForFunction` with 5s timeout, silently continues if UnoCSS isn't configured).
 
 ### Svelte HTML cleanup
 SSR output contains comment markers (`<!--[-->`, `<!--]-->`, `<!---->`, etc.) that must be stripped before UnoCSS scanning or they break class detection.
 
 ### SvelteKit route file naming
 `+page.svelte` → `_page.stories.ts`, `+layout.svelte` → `_layout.stories.ts` (the `+` prefix has special meaning in SvelteKit routing)
+
+### CSS imports
+Two config options for loading CSS into CSR mount pages:
+- `css_files`: Local file paths relative to project root (e.g. `'src/lib/theme.css'`) — imported as `import '/${file}'`
+- `css_imports`: Module specifiers resolved by Vite (e.g. `'@unocss/reset/tailwind.css'`) — imported as `import 'module'`. Used for CSS from npm packages that can't be referenced by file path.
+
+Both are injected into the CSR mount page HTML. For SSR, `css_files` are loaded via `load_universal_css` (reads from disk); `css_imports` are not needed for SSR since the consuming project's Vite plugins handle module resolution.
 
 ### Flavors
 Named sets of `page_data` overrides defined in the mocks file:
@@ -132,6 +141,10 @@ export const flavors: Record<string, Flavor> = {
 - Stories opt out with `dark: false` on shared_meta or individual story
 - Output filenames get `_dark` suffix; base64 stdout outputs as separate newline-delimited chunks
 - Body defaults: `background: var(--background, #ffffff); color: var(--color, #000000)` — consuming projects override via CSS custom properties
+
+### Screenshot clipping
+- **Default**: Screenshots are clipped to the viewport dimensions (the viewport defined in the story or config's `page_viewports`). This produces consistent, predictable image sizes.
+- **`--full-page`**: Captures the entire scrollable content. Useful for seeing all rendered content but produces variable-height images.
 
 ## Important Gotchas
 

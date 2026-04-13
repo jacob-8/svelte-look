@@ -54,11 +54,15 @@ export interface ResolvedStory {
   viewports: Viewport[]
   csr: boolean
   interactions?: (page: any) => Promise<void>
+  flavor_name?: string
 }
 
 export interface SvelteLookConfig {
   mocks?: string
+  /** Local CSS file paths relative to project root (e.g. 'src/lib/theme.css') */
   css_files?: string[]
+  /** CSS module imports resolved by Vite (e.g. '@unocss/reset/tailwind.css') - used for CSR rendering */
+  css_imports?: string[]
   uno_config?: string
   page_viewports?: Viewport[]
   dark_mode?: boolean

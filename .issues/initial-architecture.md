@@ -1,7 +1,4 @@
----
-title: svelte-look CLI - architecture and initial implementation plan
-type: feature
----
+# svelte-look CLI - architecture and initial implementation plan
 
 ## Goal
 

@@ -1,12 +1,13 @@
 import type { Flavor, MockedContext, MocksModule, ResolvedStory, Story, StoryMeta, Viewport } from '../types.js'
 
-export function resolve_story({ story, shared_meta, mocks, is_page, default_page_viewports, flavor }: {
+export function resolve_story({ story, shared_meta, mocks, is_page, default_page_viewports, flavor, flavor_name }: {
   story: Story<any>
   shared_meta?: StoryMeta
   mocks: MocksModule
   is_page: boolean
   default_page_viewports: Viewport[]
   flavor?: Flavor
+  flavor_name?: string
 }): ResolvedStory {
   const props = story.props ?? {}
 
@@ -27,7 +28,7 @@ export function resolve_story({ story, shared_meta, mocks, is_page, default_page
   const csr = story.csr ?? shared_meta?.csr ?? false
   const interactions = story.interactions ?? shared_meta?.interactions
 
-  return { props, page_data, contexts, viewports, csr, interactions }
+  return { props, page_data, contexts, viewports, csr, interactions, flavor_name }
 }
 
 function resolve_viewports({ story, shared_meta, is_page, default_page_viewports }: {
