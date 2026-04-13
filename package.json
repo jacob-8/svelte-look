@@ -6,7 +6,8 @@
     "svelte-look": "./dist/cli/index.js"
   },
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./vite": "./dist/plugin/index.js"
   },
   "files": [
     "dist"

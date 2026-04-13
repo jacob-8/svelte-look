@@ -2,9 +2,10 @@
 
 ## Project Overview
 
-**svelte-look** is a CLI tool for screenshotting Svelte components. The agent workflow:
-1. Write/update a `.stories.ts` file next to a component
-2. Call `npx svelte-look /lib/components/Button --story Primary` → get a PNG screenshot
+**svelte-look** is a CLI tool for screenshotting Svelte components + a Vite plugin for browsing stories in dev mode. Two modes:
+
+1. **CLI**: Write/update a `.stories.ts` file → `npx svelte-look /lib/components/Button --story Primary` → get a PNG screenshot
+2. **Dev UI**: Add `svelte_look()` Vite plugin → navigate to `/__look/` → browse and preview all component stories interactively
 
 Uses Vite internally as a programmatic module compiler (not HTTP server) for SSR, and as a dev server for CSR rendering in Puppeteer.
 
@@ -36,6 +37,10 @@ src/                          # Package source
 │   └── resolve.ts            # Merge mocks + shared_meta + story → ResolvedStory
 ├── screenshot/
 │   └── puppeteer.ts          # Puppeteer browser management + HTML-to-PNG
+├── plugin/
+│   ├── index.ts              # Vite plugin: dev UI at /__look/ + mount handler
+│   ├── api.ts                # Scan for .stories.ts files, load story metadata
+│   └── ui.ts                 # HTML template for the dev UI
 ├── config.ts                 # Load svelte-look.config.ts via vite.ssrLoadModule
 ├── types.ts                  # All type definitions
 └── index.ts                  # Public exports (types + define_config)
@@ -145,6 +150,21 @@ export const flavors: Record<string, Flavor> = {
 ### Screenshot clipping
 - **Default**: Screenshots are clipped to the viewport dimensions (the viewport defined in the story or config's `page_viewports`). This produces consistent, predictable image sizes.
 - **`--full-page`**: Captures the entire scrollable content. Useful for seeing all rendered content but produces variable-height images.
+
+## Dev UI (Vite Plugin)
+
+### Routes
+- `/__look/` — Main UI with sidebar component tree, filter, iframe preview
+- `/__look/api/components` — JSON API listing all components with story names and flavors
+- `/__svelte-look__/mount?component=...&story=...` — Renders a single story (used by iframe)
+
+### Architecture
+- The `svelte_look()` plugin returns an array: `[app_state_shim_plugin, dev_ui_plugin]`
+- Uses `configureServer` to add middleware to the user's Vite dev server
+- Loads `svelte-look.config.ts` and stories via `vite.ssrLoadModule()` on first request
+- The mount handler reuses `generate_mount_html()` from `render/vite-loader.ts`
+- Dark mode: adds `class="dark"` to `<html>` and passes `&dark=1` query param
+- Everything renders CSR in the dev UI (the SSR path is CLI-only for screenshots)
 
 ## Important Gotchas
 
