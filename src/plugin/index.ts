@@ -1,6 +1,6 @@
 import type { SvelteLookConfig } from '../types.js'
 import type { Plugin, ViteDevServer } from 'vite'
-import { app_state_shim_plugin, build_css_imports, generate_mount_html } from '../render/vite-loader.js'
+import { build_css_imports, generate_mount_html } from '../render/vite-loader.js'
 import { get_components_with_stories } from './api.js'
 import { render_index_page } from './ui.js'
 import { existsSync } from 'node:fs'
@@ -14,7 +14,6 @@ export function svelte_look(): Plugin[] {
   let uno_import: string
 
   return [
-    app_state_shim_plugin(),
     {
       name: 'svelte-look-dev-ui',
       apply: 'serve',
