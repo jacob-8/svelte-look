@@ -6,7 +6,32 @@ import { render_index_page } from './ui.js'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 
-export function svelte_look(): Plugin[] {
+// IMPORTANT: the public return type must NOT reference vite's `Plugin` type.
+//
+// When svelte-look is consumed via a workspace symlink (pnpm link / monorepo),
+// its own colocated `node_modules/vite` (a devDependency, needed to type-check
+// our own source) gets followed by TypeScript's module resolution and produces
+// a SECOND `Plugin<A=any>` identity distinct from the consuming project's
+// vite. Both `Plugin` types carry the deeply recursive
+// `UserConfig['plugins'] → PluginOption → Plugin` cycle, and tsgo
+// (`svelte-check --tsgo`) blows up with "Excessive stack depth comparing
+// types 'Plugin<any>[]' and 'Plugin<any>[]'" when comparing them in the
+// consumer's `defineConfig({ plugins: [...] })` array.
+//
+// Exposing a minimal local structural type instead lets the consumer assign
+// our result to the shallow `{ name: string }` arm of vite's `PluginOption`
+// union, skipping the recursive `Plugin` arm entirely. Internally we still
+// build a real `Plugin` so the implementation stays fully type-checked.
+export interface SvelteLookPlugin {
+  name: string
+  [key: string]: any
+}
+
+export function svelte_look(): SvelteLookPlugin[] {
+  return build_plugins()
+}
+
+function build_plugins(): Plugin[] {
   let vite: ViteDevServer
   let config: SvelteLookConfig
   let cwd: string
