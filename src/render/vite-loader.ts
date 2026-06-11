@@ -2,28 +2,41 @@ import type { SvelteLookConfig } from '../types.js'
 import type { ViteDevServer } from 'vite'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { createServer as createHttpServer, type Server } from 'node:http'
-import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { cleanup_temp_root, create_temp_root, get_persistent_cache_dir } from './temp-root.js'
 
 let cached_server: ViteDevServer | null = null
+let cached_temp_root: string | null = null
 let http_server: Server | null = null
 let mount_server_url: string | null = null
 
-export async function create_vite_loader({ cwd }: { cwd: string }): Promise<ViteDevServer> {
-  if (cached_server)
-    return cached_server
+export async function create_vite_loader({ cwd }: { cwd: string }): Promise<{ vite: ViteDevServer, temp_root: string }> {
+  if (cached_server && cached_temp_root)
+    return { vite: cached_server, temp_root: cached_temp_root }
+
+  // Run Vite against a temp dir of symlinks so SvelteKit's generated files and any
+  // other write-on-startup side effects don't touch the consumer project tree.
+  // Persistent external cacheDir keeps dep optimization fast across invocations.
+  const temp_root = create_temp_root({ real_cwd: cwd })
+  const cache_dir = get_persistent_cache_dir({ real_cwd: cwd })
+
+  // SvelteKit's Vite plugin captures `process.cwd()` at import time and forces
+  // Vite's `root` to that value, overriding our setting. So chdir before importing
+  // vite (which transitively imports the user's vite.config → kit plugin).
+  process.chdir(temp_root)
 
   const { createServer } = await import('vite')
 
   cached_server = await createServer({
-    root: cwd,
+    root: temp_root,
+    cacheDir: cache_dir,
     server: { middlewareMode: true },
     appType: 'custom',
     logLevel: 'silent',
     plugins: [app_state_shim_plugin()],
   })
+  cached_temp_root = temp_root
 
-  return cached_server
+  return { vite: cached_server, temp_root }
 }
 
 export function app_state_shim_plugin() {
@@ -50,14 +63,13 @@ export const updated = { current: false, check: async () => false }
   }
 }
 
-export function generate_mount_html({ component_path, story_name, is_page, mocks_path, flavor_name, css_imports_str, uno_import }: {
+export function generate_mount_html({ component_path, story_name, is_page, mocks_path, flavor_name, css_imports_str }: {
   component_path: string
   story_name: string
   is_page: boolean
   mocks_path: string
   flavor_name: string
   css_imports_str: string
-  uno_import: string
 }): string {
   const component_src = `/src${component_path}.svelte`
   const stories_src = find_stories_src_path({ component_path })
@@ -73,7 +85,6 @@ export function generate_mount_html({ component_path, story_name, is_page, mocks
 <body>
 <script type="module">
     ${css_imports_str}
-    ${uno_import}
     import { mount } from 'svelte'
     import Component from '${component_src}'
     import * as stories from '${stories_src}'
@@ -92,6 +103,11 @@ export function generate_mount_html({ component_path, story_name, is_page, mocks
       ...(flavor?.page_data ?? {}),
       ...(shared?.page_data ?? {}),
       ...(story.page_data ?? {}),
+    }
+
+    const params = {
+      ...(shared?.params ?? {}),
+      ...(story.params ?? {}),
     }
 
     let props = story.props ?? {}
@@ -114,7 +130,7 @@ export function generate_mount_html({ component_path, story_name, is_page, mocks
       data: page_data,
       error: null,
       form: null,
-      params: {},
+      params,
       route: { id: '${component_path}' },
       state: {},
       status: 200,
@@ -128,7 +144,7 @@ export function generate_mount_html({ component_path, story_name, is_page, mocks
 </html>`
 }
 
-export function build_css_imports({ config, cwd }: { config: SvelteLookConfig, cwd: string }): { css_imports_str: string, uno_import: string } {
+export function build_css_imports({ config }: { config: SvelteLookConfig }): { css_imports_str: string } {
   const local_css_imports = (config.css_files ?? [])
     .map(file => `import '/${file}'`)
   const module_css_imports = (config.css_imports ?? [])
@@ -136,11 +152,7 @@ export function build_css_imports({ config, cwd }: { config: SvelteLookConfig, c
   const css_imports_str = [...module_css_imports, ...local_css_imports]
     .join('\n    ')
 
-  const uno_config_path = config.uno_config ?? 'uno.config.ts'
-  const has_uno = existsSync(join(cwd, uno_config_path))
-  const uno_import = has_uno ? `import 'virtual:uno.css'` : ''
-
-  return { css_imports_str, uno_import }
+  return { css_imports_str }
 }
 
 export async function start_mount_server({ vite, cwd, config }: {
@@ -151,30 +163,30 @@ export async function start_mount_server({ vite, cwd, config }: {
   if (mount_server_url)
     return mount_server_url
 
-  const { css_imports_str, uno_import } = build_css_imports({ config, cwd })
+  const { css_imports_str } = build_css_imports({ config })
 
-  function mount_handler(req: IncomingMessage, res: ServerResponse, next: () => void) {
+  async function mount_handler(req: IncomingMessage, res: ServerResponse, next: () => void) {
     const req_url = req.url ?? ''
     if (!req_url.startsWith('/__svelte-look__/mount'))
       return next()
 
-    const url = new URL(req_url, 'http://localhost')
-    const component_path = url.searchParams.get('component') ?? ''
-    const story_name = url.searchParams.get('story') ?? 'Default'
-    const is_page = url.searchParams.get('is_page') === 'true'
-    const mocks_path = url.searchParams.get('mocks') ?? ''
-    const flavor_name = url.searchParams.get('flavor') ?? ''
+    try {
+      const url = new URL(req_url, 'http://localhost')
+      const component_path = url.searchParams.get('component') ?? ''
+      const story_name = url.searchParams.get('story') ?? 'Default'
+      const is_page = url.searchParams.get('is_page') === 'true'
+      const mocks_path = url.searchParams.get('mocks') ?? ''
+      const flavor_name = url.searchParams.get('flavor') ?? ''
 
-    const html = generate_mount_html({ component_path, story_name, is_page, mocks_path, flavor_name, css_imports_str, uno_import })
-
-    vite.transformIndexHtml(req_url, html).then(transformed => {
+      const html = generate_mount_html({ component_path, story_name, is_page, mocks_path, flavor_name, css_imports_str })
+      const transformed = await vite.transformIndexHtml(req_url, html)
       res.setHeader('Content-Type', 'text/html')
       res.end(transformed)
-    }).catch(err => {
-      console.error('transformIndexHtml error:', err)
+    } catch (err) {
+      console.error('mount_handler error:', err)
       res.statusCode = 500
       res.end(String(err))
-    })
+    }
   }
 
   // Prepend our handler before Vite's middleware stack
@@ -207,5 +219,9 @@ export async function close_vite_loader(): Promise<void> {
   if (cached_server) {
     await cached_server.close()
     cached_server = null
+  }
+  if (cached_temp_root) {
+    cleanup_temp_root({ temp_root: cached_temp_root })
+    cached_temp_root = null
   }
 }

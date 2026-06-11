@@ -49,14 +49,6 @@ export async function csr_render_component({ vite, component_path, resolved_stor
     await page.evaluate(() => document.documentElement.classList.add('dark'))
   await page.waitForFunction('window.__svelte_look_mounted__', { timeout: 10000 })
 
-  // Wait for UnoCSS HMR to apply styles after component mount
-  await page.waitForFunction(() => {
-    const sheets = Array.from(document.querySelectorAll('style[data-vite-dev-id*="uno"]'))
-    return sheets.some(s => s.textContent && s.textContent.length > 100)
-  }, { timeout: 5000 }).catch(() => {
-    // UnoCSS may not be configured - continue without it
-  })
-
   if (resolved_story.interactions)
     await resolved_story.interactions(page)
 

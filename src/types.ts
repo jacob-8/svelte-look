@@ -3,6 +3,13 @@ import type { Component, ComponentProps } from 'svelte'
 export interface StoryMeta {
   viewports?: Viewport[]
   page_data?: Record<string, any>
+  /**
+   * Route params that would normally come from SvelteKit's `[param]` segments,
+   * surfaced through `page.params.<name>` in `$app/state`. Use for stories of
+   * dynamic routes like `/notes/[note_id]/+page.svelte`:
+   *   `params: { note_id: 'student' }`
+   */
+  params?: Record<string, string>
   contexts?: MockedContext[]
   /** Use client-side rendering via Puppeteer instead of SSR. Needed for components that rely on onMount, $state, or browser APIs. */
   csr?: boolean
@@ -50,6 +57,7 @@ export interface MocksModule {
 export interface ResolvedStory {
   props: Record<string, any>
   page_data: Record<string, any>
+  params: Record<string, string>
   contexts: MockedContext[]
   viewports: Viewport[]
   csr: boolean
@@ -61,9 +69,8 @@ export interface SvelteLookConfig {
   mocks?: string
   /** Local CSS file paths relative to project root (e.g. 'src/lib/theme.css') */
   css_files?: string[]
-  /** CSS module imports resolved by Vite (e.g. '@unocss/reset/tailwind.css') - used for CSR rendering */
+  /** CSS module imports resolved by Vite (e.g. 'modern-normalize/modern-normalize.css') - used for CSR rendering */
   css_imports?: string[]
-  uno_config?: string
   page_viewports?: Viewport[]
   dark_mode?: boolean
 }

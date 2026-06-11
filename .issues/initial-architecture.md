@@ -19,7 +19,8 @@ Create a CLI tool (`npx svelte-look`) for screenshotting Svelte components. No d
 ### tutor: render-component-to-html.ts (SSR render)
 `/home/jacob/code/tutor/app/src/routes/api/email/render-component-to-html.ts`
 - Uses `render()` from `svelte/server`
-- Gets `rendered.head` (component scoped CSS in `<style>` tags) and `rendered.body`
+- Gets `rendered.head` and `rendered.body`
+  - **NOTE (corrected)**: `rendered.head` only contains a component's scoped CSS when it sets `<svelte:options css="injected" />`. By default vite-plugin-svelte extracts scoped CSS to a separate virtual module (`?svelte&type=style&lang.css`), which `render()` does NOT inline into `head`. svelte-look now loads those externally-extracted modules separately — see `.issues/ssr-native-svelte-scoped-css.md` and `load_native_svelte_css` in `src/render/css.ts`.
 - Cleans up Svelte comment markers, empty CSS rules, sourcemaps
 - Builds full HTML document with injected styles
 

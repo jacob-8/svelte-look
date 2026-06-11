@@ -36,7 +36,6 @@ function build_plugins(): Plugin[] {
   let config: SvelteLookConfig
   let cwd: string
   let css_imports_str: string
-  let uno_import: string
 
   return [
     {
@@ -58,9 +57,8 @@ function build_plugins(): Plugin[] {
               config = await load_look_config({ vite, cwd })
 
             if (!css_imports_str) {
-              const imports = build_css_imports({ config, cwd })
+              const imports = build_css_imports({ config })
               css_imports_str = imports.css_imports_str
-              uno_import = imports.uno_import
             }
 
             if (url === '/__look' || url === '/__look/') {
@@ -97,9 +95,8 @@ function build_plugins(): Plugin[] {
               config = await load_look_config({ vite, cwd })
 
             if (!css_imports_str) {
-              const imports = build_css_imports({ config, cwd })
+              const imports = build_css_imports({ config })
               css_imports_str = imports.css_imports_str
-              uno_import = imports.uno_import
             }
 
             const url = new URL(req_url, 'http://localhost')
@@ -110,11 +107,7 @@ function build_plugins(): Plugin[] {
             const flavor_name = url.searchParams.get('flavor') ?? ''
             const dark = url.searchParams.get('dark') === '1'
 
-            const body_style = dark
-              ? 'body { font-family: sans-serif; margin: 0; background: var(--background, #ffffff); color: var(--color, #000000); }'
-              : 'body { font-family: sans-serif; margin: 0; }'
-
-            let html = generate_mount_html({ component_path, story_name, is_page, mocks_path, flavor_name, css_imports_str, uno_import })
+            let html = generate_mount_html({ component_path, story_name, is_page, mocks_path, flavor_name, css_imports_str })
 
             if (dark) {
               html = html.replace('<html>', '<html class="dark">')

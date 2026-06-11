@@ -3,22 +3,62 @@
   let checked = $state(initial)
 </script>
 
-<label class="flex items-center gap-2 cursor-pointer select-none">
+<label class="toggle">
   <button
     role="switch"
     aria-checked={checked}
-    class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-    class:bg-[var(--primary)]={checked}
-    class:bg-[var(--surface)]={!checked}
+    class={['track', { checked }]}
     onclick={() => checked = !checked}
   >
-    <span
-      class="inline-block h-4 w-4 rounded-full bg-white transition-transform"
-      class:translate-x-6={checked}
-      class:translate-x-1={!checked}
-    ></span>
+    <span class="thumb"></span>
   </button>
   {#if label}
-    <span class="text-sm text-[var(--color)]">{label}</span>
+    <span class="label">{label}</span>
   {/if}
 </label>
+
+<style>
+  .toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .track {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    height: 1.5rem;
+    width: 2.75rem;
+    border-radius: 9999px;
+    border: none;
+    cursor: pointer;
+    background: var(--surface);
+    transition: background-color 0.15s;
+  }
+
+  .track.checked {
+    background: var(--primary);
+  }
+
+  .thumb {
+    display: inline-block;
+    height: 1rem;
+    width: 1rem;
+    border-radius: 9999px;
+    background: #ffffff;
+    transform: translateX(0.25rem);
+    transition: transform 0.15s;
+  }
+
+  .track.checked .thumb {
+    transform: translateX(1.5rem);
+  }
+
+  .label {
+    font-size: 0.875rem;
+    color: var(--color);
+  }
+</style>

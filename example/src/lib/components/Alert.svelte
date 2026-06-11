@@ -2,19 +2,57 @@
   let { message, type = 'info', dismissible = false } = $props()
 </script>
 
-<div
-  class="flex items-start gap-2 p-3 rounded-lg text-sm"
-  class:bg-blue-50={type === 'info'}
-  class:text-blue-800={type === 'info'}
-  class:bg-red-50={type === 'error'}
-  class:text-red-800={type === 'error'}
-  class:bg-green-50={type === 'success'}
-  class:text-green-800={type === 'success'}
-  class:bg-yellow-50={type === 'warning'}
-  class:text-yellow-800={type === 'warning'}
->
-  <span class="flex-1">{message}</span>
+<div class={['alert', type]}>
+  <span class="message">{message}</span>
   {#if dismissible}
-    <button class="font-bold opacity-50 hover:opacity-100">×</button>
+    <button class="dismiss">×</button>
   {/if}
 </div>
+
+<style>
+  .alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+  }
+
+  .message {
+    flex: 1;
+  }
+
+  .dismiss {
+    font-weight: 700;
+    opacity: 0.5;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: inherit;
+  }
+
+  .dismiss:hover {
+    opacity: 1;
+  }
+
+  .info {
+    background: #eff6ff;
+    color: #1e40af;
+  }
+
+  .error {
+    background: #fef2f2;
+    color: #991b1b;
+  }
+
+  .success {
+    background: #f0fdf4;
+    color: #166534;
+  }
+
+  .warning {
+    background: #fefce8;
+    color: #854d0e;
+  }
+</style>

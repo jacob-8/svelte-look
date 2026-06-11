@@ -2,7 +2,7 @@
 
 import type { Flavor, MocksModule, StoriesModule } from '../types.js'
 import { load_config } from '../config.js'
-import { build_styled_html, generate_uno_css, load_universal_css } from '../render/css.js'
+import { build_styled_html, load_native_svelte_css, load_universal_css } from '../render/css.js'
 import { csr_render_component } from '../render/csr.js'
 import { ssr_render_component } from '../render/ssr.js'
 import { create_vite_loader, close_vite_loader } from '../render/vite-loader.js'
@@ -71,11 +71,11 @@ async function main() {
     process.exit(command ? 0 : 1)
   }
 
-  const cwd = process.cwd()
+  const real_cwd = process.cwd()
 
   if (command === 'list') {
     const { list_components } = await import('./list.js')
-    const components = list_components({ cwd })
+    const components = list_components({ cwd: real_cwd })
     for (const component of components)
       console.log(component)
     return
@@ -90,7 +90,7 @@ async function main() {
   const full_page = has_flag('--full-page')
 
   try {
-    const vite = await create_vite_loader({ cwd })
+    const { vite, temp_root: cwd } = await create_vite_loader({ cwd: real_cwd })
     const config = await load_config({ vite, cwd })
 
     const stories_module = await load_stories_module({ vite, component_path, cwd })
@@ -148,7 +148,7 @@ async function main() {
                 full_page,
               })
             } else {
-              const { body, head } = await ssr_render_component({
+              const { body, head, svelte_file } = await ssr_render_component({
                 vite,
                 component_path,
                 resolved_story: resolved,
@@ -156,12 +156,12 @@ async function main() {
                 is_page,
               })
 
-              const uno_css = await generate_uno_css({ html: body, cwd, vite, config })
+              const native_svelte_css = await load_native_svelte_css({ vite, svelte_file })
               const styled_html = build_styled_html({
                 body,
                 component_css: head,
                 universal_css,
-                uno_css,
+                native_svelte_css,
                 dark: variant.dark,
               })
 
@@ -180,7 +180,7 @@ async function main() {
     for (const { buffer, suffix } of all_buffers) {
       if (output_path) {
         const { writeFileSync, mkdirSync } = await import('node:fs')
-        const { dirname, extname } = await import('node:path')
+        const { dirname, extname, isAbsolute, resolve } = await import('node:path')
 
         let file_path = output_path
         if (has_multiple_outputs) {
@@ -189,9 +189,11 @@ async function main() {
           file_path = `${base}_${suffix}${ext}`
         }
 
-        mkdirSync(dirname(file_path), { recursive: true })
-        writeFileSync(file_path, buffer)
-        console.error(`Screenshot saved to ${file_path}`)
+        // Resolve against real_cwd because we chdir'd to a temp root for Vite
+        const abs_path = isAbsolute(file_path) ? file_path : resolve(real_cwd, file_path)
+        mkdirSync(dirname(abs_path), { recursive: true })
+        writeFileSync(abs_path, buffer)
+        console.error(`Screenshot saved to ${abs_path}`)
       } else {
         const base64 = buffer.toString('base64')
         process.stdout.write(base64)

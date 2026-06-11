@@ -6,9 +6,9 @@
   let { data } = $props()
 </script>
 
-<div class="max-w-xl mx-auto p-6 space-y-4">
-  <div class="flex items-center gap-2">
-    <h1 class="text-2xl font-bold text-[var(--color)]">{data.app_name}</h1>
+<div class="page">
+  <div class="header">
+    <h1 class="title">{data.app_name}</h1>
     <Badge text={data.version} color="info" />
   </div>
 
@@ -16,8 +16,37 @@
     <Card title={card.title} description={card.description} />
   {/each}
 
-  <div class="flex gap-2">
+  <div class="actions">
     <Button label="Get Started" variant="primary" />
     <Button label="Learn More" variant="secondary" />
   </div>
 </div>
+
+<style>
+  .page {
+    max-width: 36rem;
+    margin: 0 auto;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color);
+    margin: 0;
+  }
+
+  .actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+</style>

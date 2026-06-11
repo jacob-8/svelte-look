@@ -8,7 +8,7 @@ export async function ssr_render_component({ vite, component_path, resolved_stor
   resolved_story: ResolvedStory
   cwd: string
   is_page: boolean
-}): Promise<{ body: string, head: string }> {
+}): Promise<{ body: string, head: string, svelte_file: string }> {
   const svelte_file = join(cwd, 'src', `${component_path.slice(1)}.svelte`)
   const component_module = await vite.ssrLoadModule(svelte_file)
   const component = component_module.default
@@ -31,7 +31,7 @@ export async function ssr_render_component({ vite, component_path, resolved_stor
       data: page_data,
       error: null,
       form: null,
-      params: {},
+      params: resolved_story.params,
       route: { id: component_path },
       state: {},
       status: 200,
@@ -44,16 +44,13 @@ export async function ssr_render_component({ vite, component_path, resolved_stor
   return {
     body: clean_svelte_html(rendered.body),
     head: clean_svelte_head(rendered.head),
+    svelte_file,
   }
 }
 
+/** Strip Svelte 5 SSR control-flow comment markers for cleaner screenshot HTML. */
 function clean_svelte_html(html: string): string {
-  return html
-    .replaceAll('<!---->', '')
-    .replaceAll('<!--[-->', '')
-    .replaceAll('<!--[!-->', '')
-    .replaceAll('<!--]-->', '')
-    .replace(/<!--[a-z0-9]{6}-->/gi, '')
+  return html.replace(/<!--(?:\[(?:!|-?\d+)?|\]|[a-z0-9]{6}|)-->/gi, '')
 }
 
 function clean_svelte_head(head: string): string {

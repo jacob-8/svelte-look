@@ -31,7 +31,7 @@ src/                          # Package source
 │   ├── vite-loader.ts        # Vite server creation + HTTP mount server for CSR
 │   ├── ssr.ts                # SSR render via svelte/server render()
 │   ├── csr.ts                # CSR render via Puppeteer navigating to Vite-served mount page
-│   └── css.ts                # CSS augmentation: universal CSS, UnoCSS generation, styled HTML assembly
+│   └── css.ts                # CSS augmentation: universal CSS, native Svelte scoped CSS, styled HTML assembly
 ├── stories/
 │   ├── load.ts               # Load .stories.ts and mocks files via vite.ssrLoadModule
 │   └── resolve.ts            # Merge mocks + shared_meta + story → ResolvedStory
@@ -48,7 +48,7 @@ dist/                         # tsc output
 package.json
 tsconfig.json
 
-example/                      # Test SvelteKit + UnoCSS app for development
+example/                      # Test SvelteKit app for development
 ├── src/
 ├── svelte-look.config.ts
 └── package.json
@@ -69,10 +69,10 @@ example/                      # Test SvelteKit + UnoCSS app for development
 ### SSR (default)
 ```
 story → vite.ssrLoadModule → svelte/server render() → HTML string
-  → augment with theme CSS + UnoCSS → page.setContent() → screenshot
+  → augment with theme CSS + native Svelte scoped CSS → page.setContent() → screenshot
 ```
 - Used for simple components that don't need interactivity
-- CSS augmented manually: universal CSS files + UnoCSS generation + component scoped CSS from render().head
+- CSS augmented manually: universal CSS files (`css_files`) + native Svelte scoped `<style>` CSS (`load_native_svelte_css`) + any inlined CSS from render().head
 
 ### CSR (`csr: true` in story)
 ```
@@ -81,7 +81,7 @@ story → start HTTP server with Vite middleware → serve mount page HTML
   → run interactions(page) → screenshot
 ```
 - Used for components needing `$state` reactivity, `onMount`, browser APIs, or click interactions
-- CSS handled automatically by Vite (UnoCSS plugin, component CSS, theme imports)
+- CSS handled automatically by Vite (component scoped CSS, theme imports)
 - Mount page HTML goes through `vite.transformIndexHtml()` to rewrite bare module specifiers
 - Mount middleware is prepended to `vite.middlewares.stack` (must be before Vite's 404 handler)
 
@@ -89,7 +89,7 @@ story → start HTTP server with Vite middleware → serve mount page HTML
 
 ### Vite as module compiler
 - `vite.createServer({ server: { middlewareMode: true }, appType: 'custom' })` — not an HTTP server
-- `vite.ssrLoadModule()` loads .svelte, .stories.ts, config files, and even `unocss` from the consuming project
+- `vite.ssrLoadModule()` loads .svelte, .stories.ts, and config files from the consuming project
 - For CSR, a Node HTTP server wraps `vite.middlewares` to serve the mount page
 
 ### SvelteKit `$app/state` support
@@ -106,14 +106,20 @@ story → start HTTP server with Vite middleware → serve mount page HTML
 - **Page/layout** (`+page.svelte`, `+layout.svelte`): story → shared_meta → config `page_viewports`
 - **Regular components**: story → shared_meta → **error if none defined**
 
-### UnoCSS integration
-- Uses `vite.ssrLoadModule('unocss')` to load UnoCSS from the consuming project (not a direct dependency)
-- Loads project's `uno.config.ts` via vite for the generator config
-- For SSR: scans cleaned HTML (Svelte comment markers stripped) to generate utility CSS
-- For CSR: UnoCSS Vite plugin handles everything automatically, but HMR updates arrive after mount. The CSR renderer waits for a UnoCSS `<style>` tag with substantial content before taking the screenshot (`waitForFunction` with 5s timeout, silently continues if UnoCSS isn't configured).
+### Styling model (native Svelte CSS only)
+svelte-look is Svelte-native-CSS-only. There is no UnoCSS / utility-class support. Components get styled from:
+- **Scoped `<style>` blocks** — Svelte 5 extracts each component's `<style>` to a separate virtual CSS module (`?svelte&type=style&lang.css`) rather than inlining it into `render().head` (inlining only happens with `<svelte:options css="injected" />`). SSR never fetches those virtual modules on its own, so `load_native_svelte_css` (in `css.ts`) walks the module graph from the root .svelte file, collects every matching virtual style id, and loads each via the Vite plugin container to recover the scoped CSS. CSR gets this automatically from the Vite dev server.
+- **Global stylesheets** via `css_files` / `css_imports` (see CSS imports below).
 
 ### Svelte HTML cleanup
-SSR output contains comment markers (`<!--[-->`, `<!--]-->`, `<!---->`, etc.) that must be stripped before UnoCSS scanning or they break class detection.
+SSR output contains Svelte 5 control-flow comment markers that serve no purpose in static screenshot HTML. `clean_svelte_html` (in `ssr.ts`) strips them with `<!--(?:\[(?:!|-?\d+)?|\]|[a-z0-9]{6}|)-->`. The markers Svelte 5 emits:
+
+- `<!---->` empty placeholder
+- `<!--[-->` fragment open (each/if/await/key)
+- `<!--[!-->` else-branch open
+- `<!--]-->` fragment close
+- `<!--[N-->` / `<!--[-N-->` keyed-each numeric anchors (e.g. `<!--[0-->`, `<!--[-1-->`)
+- `<!--<6 hex>-->` boundary hash (e.g. `<!--abc123-->`)
 
 ### SvelteKit route file naming
 `+page.svelte` → `_page.stories.ts`, `+layout.svelte` → `_layout.stories.ts` (the `+` prefix has special meaning in SvelteKit routing)
@@ -121,7 +127,7 @@ SSR output contains comment markers (`<!--[-->`, `<!--]-->`, `<!---->`, etc.) th
 ### CSS imports
 Two config options for loading CSS into CSR mount pages:
 - `css_files`: Local file paths relative to project root (e.g. `'src/lib/theme.css'`) — imported as `import '/${file}'`
-- `css_imports`: Module specifiers resolved by Vite (e.g. `'@unocss/reset/tailwind.css'`) — imported as `import 'module'`. Used for CSS from npm packages that can't be referenced by file path.
+- `css_imports`: Module specifiers resolved by Vite (e.g. `'modern-normalize/modern-normalize.css'`) — imported as `import 'module'`. Used for CSS from npm packages that can't be referenced by file path.
 
 Both are injected into the CSR mount page HTML. For SSR, `css_files` are loaded via `load_universal_css` (reads from disk); `css_imports` are not needed for SSR since the consuming project's Vite plugins handle module resolution.
 
@@ -171,4 +177,3 @@ export const flavors: Record<string, Flavor> = {
 - `vite.ssrLoadModule()` always compiles `.svelte` with `generate: 'server'` — cannot mount client-side in Node.js. This is why CSR uses Puppeteer navigation instead.
 - `vite.transformIndexHtml()` is required for mount pages — browsers can't resolve bare specifiers like `import { mount } from 'svelte'`
 - The mount middleware must be prepended (`stack.unshift`) to Vite's middleware stack, not appended
-- UnoCSS `import('unocss')` from svelte-look's dist/ fails — must use `vite.ssrLoadModule('unocss')` which resolves from the consuming project's node_modules

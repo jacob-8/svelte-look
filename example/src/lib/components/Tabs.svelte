@@ -4,21 +4,48 @@
 </script>
 
 <div>
-  <div class="flex border-b border-[var(--border-color)]">
+  <div class="tab-list">
     {#each tabs as tab, index}
       <button
-        class="px-4 py-2 text-sm font-medium transition-colors -mb-px"
-        class:text-[var(--primary)]={active_index === index}
-        class:border-b-2={active_index === index}
-        class:border-[var(--primary)]={active_index === index}
-        class:text-[var(--color-secondary)]={active_index !== index}
+        class={['tab', { active: active_index === index }]}
         onclick={() => active_index = index}
       >
         {tab.label}
       </button>
     {/each}
   </div>
-  <div class="p-4 text-sm text-[var(--color)]">
+  <div class="panel">
     {tabs[active_index]?.content ?? ''}
   </div>
 </div>
+
+<style>
+  .tab-list {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .tab {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    cursor: pointer;
+    color: var(--color-secondary);
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  .tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
+
+  .panel {
+    padding: 1rem;
+    font-size: 0.875rem;
+    color: var(--color);
+  }
+</style>

@@ -18,6 +18,11 @@ export function resolve_story({ story, shared_meta, mocks, is_page, default_page
     ...(story.page_data ?? {}),
   }
 
+  const params = {
+    ...(shared_meta?.params ?? {}),
+    ...(story.params ?? {}),
+  }
+
   const contexts = merge_contexts([
     ...(mocks.default_contexts ?? []),
     ...(shared_meta?.contexts ?? []),
@@ -28,7 +33,7 @@ export function resolve_story({ story, shared_meta, mocks, is_page, default_page
   const csr = story.csr ?? shared_meta?.csr ?? false
   const interactions = story.interactions ?? shared_meta?.interactions
 
-  return { props, page_data, contexts, viewports, csr, interactions, flavor_name }
+  return { props, page_data, params, contexts, viewports, csr, interactions, flavor_name }
 }
 
 function resolve_viewports({ story, shared_meta, is_page, default_page_viewports }: {
