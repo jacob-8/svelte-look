@@ -10,6 +10,20 @@ import { close_browser, html_to_png } from '../screenshot/puppeteer.js'
 import { load_mocks_module, load_stories_module } from '../stories/load.js'
 import { resolve_story } from '../stories/resolve.js'
 
+/**
+ * svelte-look's stdout is a machine-readable protocol: base64 PNG(s) for the screenshot
+ * command, or one component path per line for `list`. The screenshot path, however,
+ * renders an arbitrary user app through Vite SSR in THIS process — so any `console.log`
+ * the app (or a dependency) emits during module load or render would interleave with, and
+ * corrupt, that stream. (This is exactly what broke the MCP server: a consumer app logged
+ * `[snapshot-cron] …` on import, and those lines got treated as base64 PNGs.) So we claim
+ * stdout for ourselves: keep a private handle for protocol output, and funnel every other
+ * write to stderr where it stays visible without poisoning the protocol.
+ */
+const write_protocol = process.stdout.write.bind(process.stdout)
+process.stdout.write = ((chunk: unknown, ...rest: unknown[]) =>
+  (process.stderr.write as (...writeArgs: unknown[]) => boolean)(chunk, ...rest)) as typeof process.stdout.write
+
 const args = process.argv.slice(2)
 
 function parse_flag(flag: string): string | undefined {
@@ -77,7 +91,7 @@ async function main() {
     const { list_components } = await import('./list.js')
     const components = list_components({ cwd: real_cwd })
     for (const component of components)
-      console.log(component)
+      write_protocol(`${component}\n`)
     return
   }
 
@@ -196,9 +210,9 @@ async function main() {
         console.error(`Screenshot saved to ${abs_path}`)
       } else {
         const base64 = buffer.toString('base64')
-        process.stdout.write(base64)
+        write_protocol(base64)
         if (has_multiple_outputs)
-          process.stdout.write('\n')
+          write_protocol('\n')
       }
     }
   } catch (error) {
