@@ -31,7 +31,8 @@ src/                          # Package source
 │   ├── vite-loader.ts        # Vite server creation + HTTP mount server for CSR
 │   ├── ssr.ts                # SSR render via svelte/server render()
 │   ├── csr.ts                # CSR render via Puppeteer navigating to Vite-served mount page
-│   └── css.ts                # CSS augmentation: universal CSS, native Svelte scoped CSS, styled HTML assembly
+│   ├── css.ts                # CSS augmentation: universal CSS, native Svelte scoped CSS, styled HTML assembly
+│   └── temp-root.ts          # Symlinked temp project root to isolate svelte-look's Vite from the consumer's
 ├── stories/
 │   ├── load.ts               # Load .stories.ts and mocks files via vite.ssrLoadModule
 │   └── resolve.ts            # Merge mocks + shared_meta + story → ResolvedStory
@@ -95,6 +96,7 @@ story → start HTTP server with Vite middleware → serve mount page HTML
 ### SvelteKit `$app/state` support
 - **SSR**: Populates the `__request__` Svelte context key with the story's page data, so `page.data.*` works during server rendering. This mimics what SvelteKit does internally during its request pipeline.
 - **CSR**: A Vite plugin (`app_state_shim_plugin` in `vite-loader.ts`) intercepts `$app/state`'s `client.js` module and replaces it with a proxy that reads from `window.__svelte_look_page__`. The mount handler sets this global before calling `mount()`. Only `client.js` is intercepted (not `index.js`) to preserve SSR's `getContext('__request__')` path. This avoids importing SvelteKit's full client runtime which hangs due to deep dependency chains (`state.svelte.js` → `utils.js` → `$app/paths` → full SvelteKit client`).
+- **Route params**: a story's `params` field (`Record<string, string>`, also settable on `shared_meta`) mocks SvelteKit's `[param]` route segments — surfaced as `page.params.<name>` through the same `$app/state` plumbing above (e.g. `params: { note_id: 'student' }` for a `[note_id]` route).
 
 ### Story resolution order (later overrides earlier)
 1. `default_page_data` / `default_contexts` from mocks file
