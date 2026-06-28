@@ -17,7 +17,7 @@ Uses Vite internally as a programmatic module compiler (not HTTP server) for SSR
 | Build | `tsc` (outputs to `dist/`) |
 | Runtime | Node.js |
 | Dependencies | `puppeteer-core`, `chrome-launcher` |
-| Peer deps | `svelte ^5`, `vite ^6\|\|^7`, `@sveltejs/vite-plugin-svelte ^5\|\|^6\|\|^7` |
+| Peer deps | `svelte ^5`, `vite ^6\|\|^7\|\|^8`, `@sveltejs/vite-plugin-svelte ^5\|\|^6\|\|^7` |
 | Package Manager | pnpm |
 
 ## Project Structure

@@ -217,7 +217,7 @@ async function main() {
     }
   } catch (error) {
     console.error('Error:', error instanceof Error ? error.message : error)
-    process.exit(1)
+    process.exitCode = 1
   } finally {
     await close_browser()
     await close_vite_loader()
@@ -276,4 +276,27 @@ function get_flavors_to_render({ mocks, flavor_flag, all_flavors }: {
   return [{ flavor_name: first_name, flavor: first_flavor }]
 }
 
+/**
+ * Force-exit once the work is done. svelte-look is a one-shot CLI: as soon as the
+ * PNG(s) (or `list` output) are written, its job is over. But rendering a story runs
+ * the consumer app's modules in THIS process, and apps legitimately start background
+ * handles on server-module import — un-`unref`'d cron `setInterval`s, queue drainers,
+ * DB connection pools. Any one of those keeps Node's event loop alive forever, so
+ * relying on the loop to drain naturally means we hang indefinitely *after* the
+ * screenshot is already saved (observed: house's `hooks.server.ts` crons). So we exit
+ * explicitly. We first flush the protocol stream — `write_protocol` is the real stdout
+ * (process.stdout.write is redirected to stderr at the top of this file), and base64
+ * output to a pipe (MCP mode) can still be buffered — so `process.exit` never truncates it.
+ */
+async function finish(): Promise<never> {
+  await new Promise<void>(resolve => void write_protocol('', () => resolve()))
+  process.exit(process.exitCode ?? 0)
+}
+
 main()
+  .then(finish)
+  .catch((error) => {
+    console.error('Error:', error instanceof Error ? error.message : error)
+    process.exitCode = 1
+    return finish()
+  })
